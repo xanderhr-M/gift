@@ -289,7 +289,7 @@ tr:nth-child(even) td{background:#FFF8F8}
         <div class="stat"><div class="slbl">待客戶簽收</div><div class="sval" id="a-recv">0</div></div>
       </div>
       <div class="card">
-        <div class="card-hd">各事業部統計</div>
+        <div class="card-hd">各 BU 統計</div>
         <div style="padding:.9rem" id="div-stats"></div>
       </div>
     </div>
@@ -298,7 +298,7 @@ tr:nth-child(even) td{background:#FFF8F8}
     <div class="tpanel" id="tab-dt">
       <div class="filters">
         <input id="df-q" placeholder="搜尋客戶代碼、名稱、統編..." oninput="renderAdmin()">
-        <select id="df-d" onchange="renderAdmin()"><option value="ALL">全部事業部</option></select>
+        <select id="df-d" onchange="renderAdmin()"><option value="ALL">全部BU</option></select>
         <select id="df-p" onchange="renderAdmin()"><option value="ALL">全部用途</option><option>尾牙</option><option>春酒</option></select>
         <select id="df-s" onchange="renderAdmin()"><option value="ALL">全部狀態</option><option>待填寫</option><option>待上傳</option><option>待簽收</option><option>完成</option></select>
         <span id="df-cnt" style="font-size:12px;color:var(--M);white-space:nowrap"></span>
@@ -307,7 +307,7 @@ tr:nth-child(even) td{background:#FFF8F8}
         <div class="twrap">
           <table>
             <thead><tr>
-              <th>序</th><th>E-簽呈單號</th><th>BU</th><th>事業部</th>
+              <th>序</th><th>E-簽呈單號</th><th>BU</th><th>外勤部門</th>
               <th>外勤業務</th><th>內勤業務</th><th>企業集團</th>
               <th>客戶代碼</th><th>公司統編</th><th>客戶簡稱</th>
               <th>等級</th><th>贈禮料號</th><th>贈禮名稱</th><th>數量</th><th>價格</th>
@@ -431,7 +431,7 @@ tr:nth-child(even) td{background:#FFF8F8}
             <p style="font-size:12px;font-weight:500;color:var(--RD);margin-bottom:7px">必要欄位</p>
             <div class="flist">
               <div class="fitem">員工編號（主鍵）</div><div class="fitem">姓名</div><div class="fitem">Email</div>
-              <div class="fitem">角色（業務/助理）</div><div class="fitem">事業部</div>
+              <div class="fitem">角色（業務/助理）</div><div class="fitem">BU</div>
             </div>
           </div>
           <div class="ibox">員工編號已存在時更新資料（不覆蓋密碼）；新員工預設密碼為員工編號。</div>
@@ -529,18 +529,36 @@ function normalize(r) {
 }
 async function GET(params) {
   const url = GAS + '?' + new URLSearchParams(params);
-  const raw = await fetch(url);
-  const r = await raw.json();
-  return normalize(r);
+  console.log('[GET]', url);
+  try {
+    const raw = await fetch(url, {mode:'cors'});
+    if(!raw.ok) throw new Error('HTTP '+raw.status+' '+raw.statusText);
+    const text = await raw.text();
+    console.log('[GET] raw:', text.substring(0,200));
+    const r = JSON.parse(text);
+    return normalize(r);
+  } catch(e) {
+    console.error('[GET] error:', e.message);
+    throw e;
+  }
 }
 async function POST(body) {
-  const raw = await fetch(GAS, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(body),
-  });
-  const r = await raw.json();
-  return normalize(r);
+  console.log('[POST]', body.action);
+  try {
+    const raw = await fetch(GAS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(body),
+    });
+    if(!raw.ok) throw new Error('HTTP '+raw.status+' '+raw.statusText);
+    const text = await raw.text();
+    console.log('[POST] raw:', text.substring(0,200));
+    const r = JSON.parse(text);
+    return normalize(r);
+  } catch(e) {
+    console.error('[POST] error:', e.message);
+    throw e;
+  }
 }
 
 // ════════════════════════════════════════════════════
@@ -653,10 +671,20 @@ async function initStaff(){
   load(true,'載入客戶資料...');
   let res;
   try { res = await GET({action:'getMyGifts', email:CU.email, role:CU.role}); }
-  catch(e){ load(false); toast('網路錯誤'); return; }
+  catch(e){
+    load(false);
+    toast('網路錯誤：'+e.message);
+    document.getElementById('staff-body').innerHTML='<tr><td colspan="25" style="text-align:center;padding:2rem;color:red">API 連線失敗：'+e.message+'<br>請確認 GAS 已部署且存取權限為「任何人」</td></tr>';
+    return;
+  }
   load(false);
-  if(res.ok) GIFTS=res.data;
-  else toast('載入失敗：'+res.err);
+  console.log('[getMyGifts] result:', res.ok, 'count:', res.data?res.data.length:0, 'err:', res.err);
+  if(res.ok && res.data){
+    GIFTS=res.data;
+    if(GIFTS.length===0) toast('未找到屬於您的客戶資料，請確認試算表 Email 欄位與帳號一致');
+  } else {
+    toast('載入失敗：'+(res.err||'未知錯誤'));
+  }
   renderStaff();
 }
 
@@ -780,10 +808,19 @@ async function initAdmin(){
       GET({action:'getGifts',div:'ALL',pur:'ALL',sta:'ALL'}),
       GET({action:'getUsers'}),
     ]);
-  } catch(e){ load(false);toast('網路錯誤');return; }
+  } catch(e){
+    load(false);
+    toast('網路錯誤：'+e.message);
+    console.error('[initAdmin]',e);
+    return;
+  }
   load(false);
-  if(rG.ok) GIFTS=rG.data;
-  if(rU.ok) USERS=rU.data;
+  console.log('[initAdmin] gifts:', rG.ok, rG.data?rG.data.length:0, rG.err||'');
+  console.log('[initAdmin] users:', rU.ok, rU.data?rU.data.length:0, rU.err||'');
+  if(rG.ok && rG.data) GIFTS=rG.data;
+  else toast('禮品資料載入失敗：'+(rG.err||'未知'));
+  if(rU.ok && rU.data) USERS=rU.data;
+  else toast('帳號資料載入失敗：'+(rU.err||'未知'));
   buildDivFilter();
   renderOverview();renderAdmin();renderUsers();
   document.getElementById('em-cnt').textContent=GIFTS.length;
@@ -805,9 +842,9 @@ async function reloadAdmin(){
 }
 function buildDivFilter(){
   const sel=document.getElementById('df-d');
-  const divs=[...new Set(GIFTS.map(g=>g.division).filter(Boolean))];
-  sel.innerHTML='<option value="ALL">全部事業部</option>';
-  divs.forEach(d=>sel.innerHTML+=`<option>${d}</option>`);
+  const bus=[...new Set(GIFTS.map(g=>g.bu).filter(Boolean))];
+  sel.innerHTML='<option value="ALL">全部BU</option>';
+  bus.forEach(b=>sel.innerHTML+=`<option>${b}</option>`);
 }
 function goTab(id,btn){
   document.querySelectorAll('.tpanel').forEach(p=>p.classList.remove('on'));
@@ -825,9 +862,9 @@ function renderOverview(){
   document.getElementById('a-done').textContent=done;
   document.getElementById('a-claim').textContent=cl;
   document.getElementById('a-recv').textContent=rv;
-  const divs=[...new Set(GIFTS.map(g=>g.division).filter(Boolean))];
+  const divs=[...new Set(GIFTS.map(g=>g.bu).filter(Boolean))];
   document.getElementById('div-stats').innerHTML=divs.map(div=>{
-    const c=divBar(div),d=GIFTS.filter(g=>g.division===div);
+    const c=divBar(div),d=GIFTS.filter(g=>g.bu===div);
     const dd=d.filter(g=>calcStat(g)==='完成').length;
     const dc=d.filter(g=>calcStat(g)==='待填寫').length;
     const dr=d.filter(g=>['待簽收','待上傳'].includes(calcStat(g))).length;
@@ -856,7 +893,7 @@ function renderAdmin(){
   const fp=document.getElementById('df-p').value;
   const fs=document.getElementById('df-s').value;
   const data=GIFTS.filter(g=>{
-    if(fd!=='ALL'&&g.division!==fd)return false;
+    if(fd!=='ALL'&&g.bu!==fd)return false;
     if(fp!=='ALL'&&g.purpose!==fp)return false;
     if(fs!=='ALL'&&calcStat(g)!==fs)return false;
     if(q&&!(g.customerCode+g.customerName+(g.taxId||'')).toLowerCase().includes(q))return false;
@@ -869,7 +906,7 @@ function renderAdmin(){
     const c=divBar(g.division),st=calcStat(g);
     return`<tr style="${i%2?'background:#FFF8F8':''}">
       <td>${d(g.seq)}</td><td>${d(g.eSign)}</td><td>${d(g.bu)}</td>
-      <td><span class="bge ${divCls(g.division||'')}" style="font-size:11px">${g.division||''}</span></td>
+      <td><span class="bge ${divCls(g.bu||'')}" style="font-size:11px">${g.bu||''}</span></td>
       <td>${d(g.salesName)}</td><td>${d(g.assistantName)}</td><td>${d(g.group)}</td>
       <td>${d(g.customerCode)}</td><td>${d(g.taxId)}</td><td style="font-weight:500">${d(g.customerName)}</td>
       <td>${lbge(g.giftLevel)}</td><td>${d(g.itemNo)}</td><td>${d(g.itemDesc)}</td>
