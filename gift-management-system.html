@@ -519,18 +519,28 @@ const GAS = 'https://script.google.com/macros/s/AKfycbxc-dm0gDfoga2abxQH096FlJj3
 // ════════════════════════════════════════════════════
 //  API
 // ════════════════════════════════════════════════════
+// 統一回傳格式：將舊版 {success, error} 和新版 {ok, err} 都轉為 {ok, err}
+function normalize(r) {
+  if (r && r.ok !== undefined) return r;                        // 新格式
+  if (r && r.success !== undefined) {                           // 舊格式相容
+    return { ok: r.success, err: r.error || r.err, user: r.user, data: r.data, sent: r.sent };
+  }
+  return { ok: false, err: '回傳格式錯誤：' + JSON.stringify(r) };
+}
 async function GET(params) {
   const url = GAS + '?' + new URLSearchParams(params);
-  const res = await fetch(url);
-  return res.json();
+  const raw = await fetch(url);
+  const r = await raw.json();
+  return normalize(r);
 }
 async function POST(body) {
-  const res = await fetch(GAS, {
+  const raw = await fetch(GAS, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(body),
   });
-  return res.json();
+  const r = await raw.json();
+  return normalize(r);
 }
 
 // ════════════════════════════════════════════════════
