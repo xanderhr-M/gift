@@ -588,14 +588,27 @@ async function doLogin(){
   let res;
   try {
     res = await GET({action:'login', id, pw, adm: ADM_MODE?'1':'0'});
+    console.log('[login] GAS 回傳:', JSON.stringify(res));
   } catch(e){
-    load(false); showErr('網路錯誤，請確認 GAS 已正確部署'); return;
+    load(false);
+    console.error('[login] 網路錯誤:', e);
+    showErr('網路錯誤：'+e.message+'\n請確認 GAS 已正確部署且存取權限設為「任何人」');
+    return;
   }
   load(false);
-  if(!res.ok){showErr(res.err||'登入失敗');return;}
+  if(!res.ok){
+    // 顯示 GAS 實際回傳的錯誤
+    const msg = res.err || '登入失敗';
+    if(msg.includes('未知動作')){
+      showErr('GAS 版本過舊，請重新部署新版本（部署→管理部署作業→建立新版本）');
+    } else {
+      showErr(msg);
+    }
+    return;
+  }
   document.getElementById('lerr').style.display='none';
   CU = res.user;
-  CU.email = CU.email.trim().toLowerCase();
+  CU.email = (CU.email||'').trim().toLowerCase();
   if(CU.role==='admin'){await initAdmin();pg('admin');}
   else {await initStaff();pg('staff');}
 }
