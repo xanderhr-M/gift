@@ -779,14 +779,17 @@ async function saveRecv(){
   };
   if(RECV_FILE){
     body.fileBase64=await f2b64(RECV_FILE);
-    body.fileName=RECV_FILE.name;
+    const g_=GIFTS.find(x=>String(x.seq)===String(EDIT_SEQ));
+    const ext=RECV_FILE.name.includes('.')?'.'+RECV_FILE.name.split('.').pop():'';
+    const prefix=(g_?(g_.customerCode||'')+(g_.customerName||''):'') || RECV_FILE.name.replace(/\.[^.]*$/,'');
+    body.fileName=prefix+ext;
     body.mimeType=RECV_FILE.type;
   }
   const res=await POST(body);
   load(false);
   if(!res.ok){toast('錯誤：'+res.err);return;}
   const g=GIFTS.find(x=>String(x.seq)===String(EDIT_SEQ));
-  if(g){Object.assign(g,body);if(RECV_FILE)g.receiptFile=RECV_FILE.name;}
+  if(g){Object.assign(g,body);if(RECV_FILE)g.receiptFile=body.fileName||RECV_FILE.name;}
   RECV_FILE=null;closeM('m-recv');renderStaff();toast('簽收資料已儲存');
 }
 
