@@ -350,25 +350,25 @@ tr:nth-child(even) td{background:#FFF8F8}
         <div class="mttl" style="margin-bottom:1rem">提醒內勤業務填寫領用單號</div>
         <div class="rrow" style="background:var(--RL);border:.5px solid var(--RB)">
           <p style="margin-bottom:7px"><span class="bge b-r">尾牙</span></p>
-          <div class="fg2"><div><label>開始提醒日期</label><input type="date" id="cr-s1" value="2025-01-01"></div><div><label>頻率（天）</label><input type="number" min="1" id="cr-f1" value="3"></div></div>
+          <div class="fg2"><div><label>開始提醒日期</label><input type="date" id="cr-s1"></div><div><label>頻率（天）</label><input type="number" min="1" id="cr-f1"></div></div>
         </div>
         <div class="rrow" style="background:#E1F5EE;border:.5px solid #9FE1CB">
           <p style="margin-bottom:7px"><span class="bge b-t">春酒</span></p>
-          <div class="fg2"><div><label>開始提醒日期</label><input type="date" id="cr-s2" value="2025-02-01"></div><div><label>頻率（天）</label><input type="number" min="1" id="cr-f2" value="3"></div></div>
+          <div class="fg2"><div><label>開始提醒日期</label><input type="date" id="cr-s2"></div><div><label>頻率（天）</label><input type="number" min="1" id="cr-f2"></div></div>
         </div>
-        <button class="btn btn-r" style="margin-top:.9rem" onclick="toast('提醒設定已儲存')">儲存設定</button>
+        <button class="btn btn-r" style="margin-top:.9rem" onclick="saveSettings('claim')">儲存設定</button>
       </div>
       <div class="card" style="padding:1.25rem">
         <div class="mttl" style="margin-bottom:1rem">提醒外勤業務填寫客戶簽收日期</div>
         <div class="rrow" style="background:var(--RL);border:.5px solid var(--RB)">
           <p style="margin-bottom:7px"><span class="bge b-r">尾牙</span></p>
-          <div class="fg2"><div><label>開始提醒日期</label><input type="date" id="rr-s1" value="2025-01-10"></div><div><label>頻率（天）</label><input type="number" min="1" id="rr-f1" value="5"></div></div>
+          <div class="fg2"><div><label>開始提醒日期</label><input type="date" id="rr-s1"></div><div><label>頻率（天）</label><input type="number" min="1" id="rr-f1"></div></div>
         </div>
         <div class="rrow" style="background:#E1F5EE;border:.5px solid #9FE1CB">
           <p style="margin-bottom:7px"><span class="bge b-t">春酒</span></p>
-          <div class="fg2"><div><label>開始提醒日期</label><input type="date" id="rr-s2" value="2025-02-10"></div><div><label>頻率（天）</label><input type="number" min="1" id="rr-f2" value="5"></div></div>
+          <div class="fg2"><div><label>開始提醒日期</label><input type="date" id="rr-s2"></div><div><label>頻率（天）</label><input type="number" min="1" id="rr-f2"></div></div>
         </div>
-        <button class="btn btn-r" style="margin-top:.9rem" onclick="toast('提醒設定已儲存')">儲存設定</button>
+        <button class="btn btn-r" style="margin-top:.9rem" onclick="saveSettings('receipt')">儲存設定</button>
       </div>
     </div>
 
@@ -827,6 +827,8 @@ async function initAdmin(){
   buildDivFilter();
   renderOverview();renderAdmin();renderUsers();
   document.getElementById('em-cnt').textContent=GIFTS.length;
+  // 預先載入提醒設定，切到分頁時已有值
+  loadSettings();
 }
 async function reloadAdmin(){
   load(true,'重新載入...');
@@ -854,6 +856,7 @@ function goTab(id,btn){
   document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('on'));
   document.getElementById('tab-'+id).classList.add('on');btn.classList.add('on');
   if(id==='ac') renderUsers();
+  if(id==='rm') loadSettings();
 }
 
 function renderOverview(){
@@ -976,6 +979,51 @@ async function sendEmail(){
   load(false);
   toast(res.ok?'已發送 '+res.sent+' 封':'發送失敗：'+res.err);
 }
+// ── 提醒設定：從試算表載入 ─────────────────────────────────────
+async function loadSettings(){
+  const res = await GET({action:'getSettings'});
+  if(!res.ok){ toast('提醒設定載入失敗：'+(res.err||'')); return; }
+  const d = res.data || {};
+  // claimReminder（領用單號提醒）
+  const cr = d.claimReminder || {};
+  const crPur = cr.purposes || ['尾牙','春酒'];
+  // 尾牙
+  if(crPur.includes('尾牙')){
+    document.getElementById('cr-s1').value = cr.start||'';
+    document.getElementById('cr-f1').value = cr.freq||3;
+  }
+  // 春酒：若有分開存就讀，否則共用同一設定
+  document.getElementById('cr-s2').value = (d.claimReminder2||cr).start||cr.start||'';
+  document.getElementById('cr-f2').value = (d.claimReminder2||cr).freq||cr.freq||3;
+  // receiptReminder（簽收日期提醒）
+  const rr = d.receiptReminder || {};
+  const rrPur = rr.purposes || ['尾牙','春酒'];
+  document.getElementById('rr-s1').value = rr.start||'';
+  document.getElementById('rr-f1').value = rr.freq||5;
+  document.getElementById('rr-s2').value = (d.receiptReminder2||rr).start||rr.start||'';
+  document.getElementById('rr-f2').value = (d.receiptReminder2||rr).freq||rr.freq||5;
+}
+
+// ── 提醒設定：儲存到試算表 ─────────────────────────────────────
+async function saveSettings(type){
+  let settings = {};
+  if(type==='claim'){
+    settings.claimReminder  = { enabled:true, start:document.getElementById('cr-s1').value, freq:Number(document.getElementById('cr-f1').value), purposes:['尾牙'] };
+    settings.claimReminder2 = { enabled:true, start:document.getElementById('cr-s2').value, freq:Number(document.getElementById('cr-f2').value), purposes:['春酒'] };
+  } else {
+    settings.receiptReminder  = { enabled:true, start:document.getElementById('rr-s1').value, freq:Number(document.getElementById('rr-f1').value), purposes:['尾牙'] };
+    settings.receiptReminder2 = { enabled:true, start:document.getElementById('rr-s2').value, freq:Number(document.getElementById('rr-f2').value), purposes:['春酒'] };
+  }
+  // 合併現有設定（避免覆蓋另一種提醒）
+  load(true,'儲存中...');
+  const cur = await GET({action:'getSettings'});
+  if(cur.ok && cur.data) settings = Object.assign({}, cur.data, settings);
+  const res = await POST({action:'saveSettings', settings, by:CU.id});
+  load(false);
+  if(res.ok) toast('✓ 提醒設定已儲存至試算表');
+  else toast('儲存失敗：'+(res.err||''));
+}
+
 function goItab(id,btn){
   document.querySelectorAll('.ipanel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.itab').forEach(b=>b.classList.remove('on'));
