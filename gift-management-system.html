@@ -346,6 +346,14 @@ tr:nth-child(even) td{background:#FFF8F8}
 
     <!-- 提醒設定 -->
     <div class="tpanel" id="tab-rm">
+      <div class="card" style="padding:1.25rem;margin-bottom:1rem;background:#F0FAF5;border:.5px solid #9FE1CB">
+        <div class="mttl" style="margin-bottom:.6rem;color:#0F7C56">自動提醒觸發器狀態</div>
+        <p style="font-size:12px;color:#444;margin-bottom:.75rem">儲存提醒設定時會自動安裝觸發器。若系統曾重新部署，請點此手動重新安裝，確保每日 09:00 自動發信。</p>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-r" onclick="installTrigger()" id="trig-btn">安裝 / 確認每日自動提醒</button>
+          <span id="trig-status" style="font-size:12px;color:var(--M)"></span>
+        </div>
+      </div>
       <div class="card" style="padding:1.25rem;margin-bottom:1rem">
         <div class="mttl" style="margin-bottom:1rem">提醒內勤業務填寫領用單號</div>
         <div class="rrow" style="background:var(--RL);border:.5px solid var(--RB)">
@@ -1024,6 +1032,21 @@ async function saveSettings(type){
   else toast('儲存失敗：'+(res.err||''));
 }
 
+async function installTrigger(){
+  const btn=document.getElementById('trig-btn');
+  const st=document.getElementById('trig-status');
+  btn.disabled=true;st.textContent='安裝中...';st.style.color='var(--M)';
+  load(true,'安裝觸發器...');
+  const res=await POST({action:'installTrigger',by:CU.id});
+  load(false);btn.disabled=false;
+  if(res.ok){
+    st.textContent='✓ 觸發器已就緒，每日 09:00 自動發信';st.style.color='#0F7C56';
+    toast('✓ 每日自動提醒觸發器已安裝');
+  } else {
+    st.textContent='✗ 安裝失敗：'+(res.err||'');st.style.color='var(--R)';
+    toast('安裝失敗：'+res.err);
+  }
+}
 function goItab(id,btn){
   document.querySelectorAll('.ipanel').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.itab').forEach(b=>b.classList.remove('on'));
