@@ -49,7 +49,7 @@ body{font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;background:var(-
 }
 
 /* Login */
-.lhero{background:#fff;border-bottom:1px solid var(--paper3);padding:2.5rem 0 2rem;text-align:center}
+.lhero{background:transparent;padding:2.5rem 0 1rem;text-align:center}
 .lhero img{height:60px;width:auto;margin-bottom:.75rem}
 .lring{display:none}
 .lco{font-size:11px;color:var(--ink3);letter-spacing:.1em;margin-bottom:5px}
@@ -96,7 +96,8 @@ label{font-size:12px;font-weight:700;color:var(--ink2);display:block;margin-bott
 .b-p{background:var(--purple-light);color:var(--purple)}
 
 /* Table */
-.twrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--paper3);border-radius:var(--rlg)}
+.twrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--paper3);border-radius:var(--rlg);max-height:62vh}
+.twrap thead th{position:sticky;top:0;z-index:2}
 table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
 th{padding:.65rem 1rem;text-align:left;font-weight:700;font-size:11px;background:var(--paper2);color:var(--ink3);border-bottom:1px solid var(--paper3)}
 td{padding:.7rem 1rem;border-bottom:1px solid var(--paper3);vertical-align:middle;color:var(--ink)}
@@ -255,6 +256,7 @@ tr:hover td{background:var(--paper)}
     <button class="tbtn"    onclick="goTab('em',this)">通知設定</button>
     <button class="tbtn"    onclick="goTab('up',this)">資料上傳</button>
     <button class="tbtn"    onclick="goTab('dl',this)">資料下載</button>
+    <button class="tbtn"    onclick="goTab('arc',this)">歷史封存查詢</button>
     <button class="tbtn"    onclick="goTab('ac',this)">管理員設定</button>
     <div class="aside-sp"></div>
     <button class="tbtn tbtn-foot" onclick="openPw()">修改密碼</button>
@@ -295,6 +297,7 @@ tr:hover td{background:var(--paper)}
         <select id="df-s" onchange="renderAdmin()"><option value="ALL">全部狀態</option><option>待填寫</option><option>待上傳</option><option>待簽收</option><option>完成</option></select>
         <input id="df-q" placeholder="搜尋客戶代碼、名稱、統編..." oninput="renderAdmin()">
         <button class="btn btn-r btn-sm" onclick="openGift()">＋ 新增尾牙禮品明細</button>
+        <button class="btn btn-sm" style="background:var(--accent2);color:#fff;border-color:var(--accent2)" onclick="archiveGiftYear()">封存本年度資料</button>
         <span id="df-cnt" style="font-size:12px;color:var(--M);white-space:nowrap"></span>
       </div>
       <div class="card">
@@ -321,6 +324,7 @@ tr:hover td{background:var(--paper)}
               <th>簽收者名稱</th><th>簽收者ID</th>
               <th class="th-sort" data-k="receiptDate" data-label="簽收日期" onclick="sortAdmin('receiptDate')">簽收日期</th>
               <th>編輯</th>
+              <th>刪除</th>
             </tr></thead>
             <tbody id="admin-body"></tbody>
           </table>
@@ -538,6 +542,35 @@ tr:hover td{background:var(--paper)}
           <button class="btn btn-r" onclick="dlExportExcel()">匯出 EXCEL 檔</button>
           <button class="btn" onclick="dlDownloadReceipts()">下載簽收單圖檔</button>
           <span id="dl-sel" style="font-size:12px;color:var(--M)"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 歷史封存查詢：已封存年度的尾牙禮品明細，唯讀，不影響「尾牙禮品明細」的工作列表 -->
+    <div class="tpanel" id="tab-arc">
+      <div class="page-title">歷史封存查詢</div>
+      <div class="page-sub">查詢已封存年度的尾牙禮品明細（唯讀，不可編輯或刪除）</div>
+      <div class="filters">
+        <select id="arc-year" onchange="loadArcList()"><option value="">請選擇要查詢的年度</option></select>
+        <select id="arc-d" onchange="renderArcList()"><option value="ALL">全部BU</option></select>
+        <select id="arc-p" onchange="renderArcList()"><option value="ALL">全部用途</option><option>尾牙</option><option>春酒</option></select>
+        <input id="arc-q" placeholder="搜尋客戶代碼、名稱、統編..." oninput="renderArcList()">
+        <span id="arc-cnt" style="font-size:12px;color:var(--M);white-space:nowrap"></span>
+      </div>
+      <div class="card">
+        <div class="twrap">
+          <table>
+            <thead><tr>
+              <th>狀態</th><th>序</th><th>E-簽呈單號</th><th>BU</th><th>外勤部門</th>
+              <th>外勤業務</th><th>內勤業務</th><th>企業集團</th>
+              <th>客戶代碼</th><th>公司統編</th><th>客戶簡稱</th>
+              <th>禮品等級</th><th>贈禮料號</th><th>贈禮名稱</th><th>數量</th><th>價格</th>
+              <th>用途</th><th>活動日期</th><th>說明</th><th>備註</th>
+              <th>領用單號</th><th>是否扣繳</th>
+              <th>簽收對象</th><th>簽收者名稱</th><th>簽收者ID</th><th>簽收日期</th>
+            </tr></thead>
+            <tbody id="arc-body"><tr><td colspan="25" style="text-align:center;padding:1.5rem;color:var(--ink3)">請先選擇要查詢的年度</td></tr></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -949,6 +982,66 @@ function goTab(id,btn){
   if(id==='em'){ renderNotify(); loadSettings(); }
   if(id==='em2') renderEmp();
   if(id==='dl') renderDl();
+  if(id==='arc') loadArcYears();
+}
+
+// ── 歷史封存查詢：已封存年度唯讀查詢 ────────────────────────
+let ARC_LIST=[];
+async function loadArcYears(){
+  const sel=document.getElementById('arc-year');
+  const cur=sel.value;
+  const res=await GET({action:'getGiftArchiveYears'});
+  if(!res.ok){ toast('載入封存年度清單失敗：'+res.err); return; }
+  sel.innerHTML='<option value="">請選擇要查詢的年度</option>'+res.data.map(y=>`<option>${y}</option>`).join('');
+  if(res.data.includes(cur)) sel.value=cur;
+}
+async function loadArcList(){
+  const year=document.getElementById('arc-year').value;
+  if(!year){
+    ARC_LIST=[];
+    document.getElementById('arc-body').innerHTML='<tr><td colspan="25" style="text-align:center;padding:1.5rem;color:var(--ink3)">請先選擇要查詢的年度</td></tr>';
+    document.getElementById('arc-cnt').textContent='';
+    return;
+  }
+  load(true,'載入封存資料中...');
+  const res=await GET({action:'getGiftArchiveList',year});
+  load(false);
+  if(!res.ok){ toast('載入失敗：'+res.err); return; }
+  ARC_LIST=res.data;
+  const dsel=document.getElementById('arc-d');
+  const curD=dsel.value;
+  const bus=[...new Set(ARC_LIST.map(g=>g.bu).filter(Boolean))];
+  dsel.innerHTML='<option value="ALL">全部BU</option>'+bus.map(b=>`<option>${b}</option>`).join('');
+  if(bus.includes(curD)) dsel.value=curD;
+  renderArcList();
+}
+function renderArcList(){
+  const q=document.getElementById('arc-q').value.toLowerCase();
+  const fd=document.getElementById('arc-d').value;
+  const fp=document.getElementById('arc-p').value;
+  const data=ARC_LIST.filter(g=>{
+    if(fd!=='ALL'&&g.bu!==fd)return false;
+    if(fp!=='ALL'&&g.purpose!==fp)return false;
+    if(q&&!(g.customerCode+g.customerName+(g.taxId||'')).toLowerCase().includes(q))return false;
+    return true;
+  });
+  document.getElementById('arc-cnt').textContent='共 '+data.length+' 筆';
+  const tb=document.getElementById('arc-body');
+  if(!data.length){ tb.innerHTML='<tr><td colspan="25" style="text-align:center;padding:1.5rem;color:var(--ink3)">無符合條件的記錄</td></tr>'; return; }
+  tb.innerHTML=data.map((g,i)=>`<tr style="${i%2?'background:#FFF8F8':''}">
+    <td>${sbge(calcStat(g))}</td>
+    <td>${d(g.seq)}</td><td>${d(g.eSign)}</td><td>${d(g.bu)}</td>
+    <td>${d(g.division)}</td>
+    <td>${d(g.salesName)}</td><td>${d(g.assistantName)}</td><td>${d(g.group)}</td>
+    <td>${d(g.customerCode)}</td><td>${d(g.taxId)}</td><td style="font-weight:500">${d(g.customerName)}</td>
+    <td>${lbge(g.giftLevel)}</td><td>${d(g.itemNo)}</td><td>${d(g.itemDesc)}</td>
+    <td>${d(g.qty)}</td><td>${g.price?'$'+Number(g.price).toLocaleString():d('')}</td>
+    <td>${pbge(g.purpose)}</td><td>${d(g.eventDate)}</td>
+    <td style="max-width:120px">${d(g.note)}</td><td>${d(g.remark)}</td>
+    <td>${d(g.claimNo)}</td><td>${d(g.withhold)}</td>
+    <td>${rbge(g.recvType)}</td><td>${d(g.recvName)}</td><td>${d(g.recvId)}</td>
+    <td>${d(g.receiptDate)}</td>
+  </tr>`).join('');
 }
 
 function renderOverview(){
@@ -1037,7 +1130,7 @@ function renderAdmin(){
   paintSortHeaders();
   document.getElementById('df-cnt').textContent='共 '+data.length+' 筆';
   const tb=document.getElementById('admin-body');
-  if(!data.length){tb.innerHTML='<tr><td colspan="27" style="text-align:center;padding:1.5rem;color:var(--LT)">無符合條件的記錄</td></tr>';return;}
+  if(!data.length){tb.innerHTML='<tr><td colspan="28" style="text-align:center;padding:1.5rem;color:var(--LT)">無符合條件的記錄</td></tr>';return;}
   tb.innerHTML=data.map((g,i)=>{
     const st=calcStat(g);
     return`<tr style="${i%2?'background:#FFF8F8':''}">
@@ -1054,6 +1147,7 @@ function renderAdmin(){
       <td>${rbge(g.recvType)}</td><td>${d(g.recvName)}</td><td>${d(g.recvId)}</td>
       <td>${g.receiptFile?`<span style="cursor:pointer;color:#0C447C;text-decoration:underline" onclick="dlReceipt('${g.seq}')" title="下載簽收單">${g.receiptDate||'⬇ 檢視'}</span>`:d(g.receiptDate)}</td>
       <td><button class="btn btn-sm" onclick="openGift('${g.seq}')">編輯</button></td>
+      <td><button class="btn btn-sm btn-dk" onclick="delGift('${g.seq}','${(g.customerName||g.customerCode||'').replace(/'/g,"")}')">刪除</button></td>
     </tr>`;
   }).join('');
 }
@@ -1091,6 +1185,36 @@ async function saveGift(){
   closeM('m-gift'); buildDivFilter(); renderAdmin(); renderOverview();
   toast(GIFT_EDIT?'✓ 明細已更新':'✓ 明細已新增');
 }
+async function delGift(seq,label){
+  if(!confirm('確定要刪除這筆尾牙禮品明細（序 '+seq+'／'+label+'）嗎？\n\n此操作無法復原。'))return;
+  load(true,'刪除中...');
+  const res=await POST({action:'deleteGift',seq,by:CU.id});
+  load(false);
+  if(!res.ok){ toast('錯誤：'+res.err);return; }
+  GIFTS=GIFTS.filter(g=>String(g.seq)!==String(seq));
+  buildDivFilter(); renderAdmin(); renderOverview();
+  toast('明細已刪除');
+}
+// 封存本年度資料：把目前「尾牙禮品明細」篩選列上選定的年度（不能是「全部年度」）整批搬到
+// 歷史封存表，避免新舊年度資料混在同一份工作列表裡；封存後隨時可以到「歷史封存查詢」查回來。
+// 不強制擋「一定要全部完成才能封存」，只是先跳出來提醒還有幾筆沒完成，由管理者自己決定。
+async function archiveGiftYear(){
+  const year=document.getElementById('df-year').value;
+  if(year==='ALL'){ toast('請先在年度下拉選單選擇要封存的單一年度'); return; }
+  const inYear=GIFTS.filter(g=>String(g.year||'')===year);
+  if(!inYear.length){ toast('目前沒有'+year+'年度的資料可封存'); return; }
+  const notDone=inYear.filter(g=>calcStat(g)!=='完成').length;
+  let msg='確定要封存 '+year+' 年度的尾牙禮品明細嗎？共 '+inYear.length+' 筆，封存後這些資料會從「尾牙禮品明細」工作列表移除，但隨時可以到「歷史封存查詢」查詢。此操作無法復原。';
+  if(notDone) msg='注意：'+year+' 年度還有 '+notDone+' 筆尚未完成（狀態不是「完成」）。\n\n'+msg;
+  if(!confirm(msg))return;
+  load(true,'封存中...');
+  const res=await POST({action:'archiveGiftYear',year,by:CU.id});
+  load(false);
+  if(!res.ok){ toast('錯誤：'+res.err);return; }
+  const rG=await GET({action:'getGifts',div:'ALL',pur:'ALL',sta:'ALL'}); if(rG.ok&&rG.data) GIFTS=rG.data;
+  buildDivFilter(); renderAdmin(); renderOverview();
+  toast('已封存 '+res.count+' 筆資料');
+}
 
 function renderUsers(){
   const el=document.getElementById('aclist');
@@ -1107,7 +1231,7 @@ function renderUsers(){
       <td>${(sup||self)?'<span style="color:var(--ink3)">—</span>':`<button class="btn btn-sm btn-dk" onclick="delUser('${u.id}','${nm}')">刪除</button>`}</td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" style="padding:1.25rem;color:var(--ink3)">尚無管理員</td></tr>';
-  el.innerHTML=`<div style="overflow-x:auto"><table>
+  el.innerHTML=`<div class="twrap" style="border:none"><table>
     <thead><tr><th>姓名</th><th>帳號</th><th>密碼</th><th>E-mail</th><th>身份</th><th>編輯</th><th>刪除</th></tr></thead>
     <tbody>${body}</tbody>
   </table></div>`;

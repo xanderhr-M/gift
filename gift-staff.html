@@ -37,7 +37,7 @@ body{font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;background:var(-
 .avtr{width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px}
 
 /* Login */
-.lhero{background:#fff;border-bottom:1px solid var(--paper3);padding:2.5rem 0 2rem;text-align:center}
+.lhero{background:transparent;padding:2.5rem 0 1rem;text-align:center}
 .lhero img{height:60px;width:auto;margin-bottom:.75rem}
 .lring{display:none}
 .lco{font-size:11px;color:var(--ink3);letter-spacing:.1em;margin-bottom:5px}
@@ -83,7 +83,8 @@ label{font-size:12px;font-weight:700;color:var(--ink2);display:block;margin-bott
 .b-p{background:var(--purple-light);color:var(--purple)}
 
 /* Table */
-.twrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--paper3);border-radius:var(--rlg)}
+.twrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--paper3);border-radius:var(--rlg);max-height:62vh}
+.twrap thead th{position:sticky;top:0;z-index:2}
 table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
 th{padding:.65rem 1rem;text-align:center;font-weight:700;font-size:11px;background:var(--paper2);color:var(--ink3);border-bottom:1px solid var(--paper3)}
 td{padding:.7rem 1rem;border-bottom:1px solid var(--paper3);vertical-align:middle;text-align:center;color:var(--ink)}
@@ -321,6 +322,40 @@ function closeM(id){ document.getElementById(id).style.display='none'; }
 function toast(msg){ const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800); }
 function load(show,msg='載入中...'){ const el=document.getElementById('loading');el.style.display=show?'flex':'none';if(show)document.getElementById('load-msg').textContent=msg; }
 function f2b64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);})}
+// 圖片上傳前壓縮：先縮尺寸、再逐步降 JPEG 品質，盡量壓到目標大小內
+// 目標 ~120KB、最長邊 1400px 起、品質下限 0.4；PDF 等非圖片不處理
+function compressImage(file,{maxDim=1400,targetKB=120,minQuality=0.4}={}){
+  return new Promise(res=>{
+    if(!/^image\//.test(file.type||'')){ res(file); return; }
+    const img=new Image();
+    img.onload=async()=>{
+      const draw=dim=>{
+        let w=img.naturalWidth,h=img.naturalHeight;
+        if(Math.max(w,h)>dim){ const r=dim/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r); }
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h); return cv;
+      };
+      const toBlob=(cv,q)=>new Promise(r=>cv.toBlob(r,'image/jpeg',q));
+      let dim=maxDim,best=null;
+      for(let pass=0;pass<3;pass++){
+        const cv=draw(dim);
+        for(const q of [0.6,0.5,0.42,minQuality]){
+          const b=await toBlob(cv,q);
+          if(b){ best=b; if(b.size<=targetKB*1024) break; }
+        }
+        if(best && best.size<=targetKB*1024) break;
+        dim=Math.round(dim*0.8);
+        if(dim<900) break;
+      }
+      URL.revokeObjectURL(img.src);
+      if(!best || best.size>=file.size){ res(file); return; }
+      best.name=(String(file.name||'receipt').replace(/\.[^.]+$/,''))+'.jpg';
+      res(best);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(img.src); res(file); };
+    img.src=URL.createObjectURL(file);
+  });
+}
 function d(v){return(v===''||v===null||v===undefined)?'<span style="color:var(--LT)">—</span>':v}
 function toggleEye(btn,inp){const i=document.getElementById(inp);i.type=i.type==='text'?'password':'text';}
 function pbge(p){return`<span class="bge ${p==='尾牙'?'b-r':'b-t'}">${p||''}</span>`}
@@ -501,7 +536,15 @@ function toggleAddr(){
   const t=document.getElementById('rv-type').value;
   document.getElementById('rv-addr-row').style.display=t==='個人'?'block':'none';
 }
-function selRecvFile(inp){if(inp.files[0]){RECV_FILE=inp.files[0];document.getElementById('rv-flbl').textContent='✓ '+inp.files[0].name;}}
+async function selRecvFile(inp){
+  const orig=inp.files[0]; if(!orig) return;
+  const lbl=document.getElementById('rv-flbl');
+  lbl.textContent='處理中...';
+  const f=await compressImage(orig);
+  RECV_FILE=f;
+  const kb=n=>Math.max(1,Math.round(n/1024))+' KB';
+  lbl.textContent='✓ '+(f.name||orig.name)+'　'+(f!==orig?'（'+kb(orig.size)+' → '+kb(f.size)+'）':'（'+kb(f.size)+'）');
+}
 function openRecv(seq){
   EDIT_SEQ=seq;RECV_FILE=null;
   const g=GIFTS.find(x=>String(x.seq)===String(seq));
